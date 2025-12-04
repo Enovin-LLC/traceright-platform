@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 import { getAI, getGenerativeModel, VertexAIBackend } from "firebase/ai";
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
@@ -10,17 +11,24 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 
-// TODO: Replace the following with your app's Firebase configuration
-// See: https://firebase.google.com/docs/web/learn-more#config-object
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  // ...
+  apiKey: "AIzaSyBBbKn_g5PnOI83NDOUk20PDcq_eeF3y48",
+  authDomain: "alldoing.firebaseapp.com",
+  projectId: "alldoing",
+  storageBucket: "alldoing.firebasestorage.app",
+  messagingSenderId: "638690826160",
+  appId: "1:638690826160:web:a19799f57e6919bbb72875",
+  measurementId: "G-E72MQKKDBW"
 };
 
-// Initialize FirebaseApp
-const firebaseApp = initializeApp(firebaseConfig);
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
 
 // Initialize the Vertex AI Gemini API backend service
-const ai = getAI(firebaseApp, { backend: new VertexAIBackend() });
+const ai = getAI(app, { backend: new VertexAIBackend() });
 
 // Create a `GenerativeModel` instance with a model that supports your use case
 export const model = getGenerativeModel(ai, { model: "gemini-1.5-flash" });
