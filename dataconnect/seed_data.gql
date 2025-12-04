@@ -1,0 +1,101 @@
+mutation SeedDatabase @auth(level: NO_ACCESS) {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      companyName: "Example Co",
+      createdAt: "2024-01-29T12:00:00Z",
+      displayName: "Demo User 1",
+      email: "demo1@example.com",
+      role: "Admin"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      companyName: "Sample Inc",
+      createdAt: "2024-01-29T13:00:00Z",
+      displayName: "Demo User 2",
+      email: "demo2@example.com",
+      role: "User"
+    }
+  ])
+  product_insertMany(data: [
+    {
+      id: "650e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-01-29T14:00:00Z",
+      description: "Example Product 1",
+      dimensions: "10x10x10",
+      name: "Product A",
+      price: 25.00,
+      sku: "PROD-A-123",
+      weight: 1.0
+    },
+    {
+      id: "650e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-01-29T15:00:00Z",
+      description: "Example Product 2",
+      dimensions: "20x20x20",
+      name: "Product B",
+      price: 50.00,
+      sku: "PROD-B-456",
+      weight: 2.0
+    }
+  ])
+  location_insertMany(data: [
+    {
+      id: "750e8400-e29b-41d4-a716-446655440000",
+      address: "123 Main St",
+      contactPerson: "John Doe",
+      createdAt: "2024-01-29T16:00:00Z",
+      name: "Warehouse A",
+      phoneNumber: "555-1234"
+    },
+    {
+      id: "750e8400-e29b-41d4-a716-446655440001",
+      address: "456 Elm St",
+      contactPerson: "Jane Smith",
+      createdAt: "2024-01-29T17:00:00Z",
+      name: "Warehouse B",
+      phoneNumber: "555-5678"
+    }
+  ])
+  inventoryItem_insertMany(data: [
+    {
+      id: "850e8400-e29b-41d4-a716-446655440000",
+      locationId: "750e8400-e29b-41d4-a716-446655440000",
+      productId: "650e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-01-29T18:00:00Z",
+      quantity: 100,
+      updatedAt: "2024-01-29T18:00:00Z"
+    },
+    {
+      id: "850e8400-e29b-41d4-a716-446655440001",
+      locationId: "750e8400-e29b-41d4-a716-446655440001",
+      productId: "650e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-01-29T19:00:00Z",
+      quantity: 50,
+      updatedAt: "2024-01-29T19:00:00Z"
+    }
+  ])
+  order_insertMany(data: [
+    {
+      id: "950e8400-e29b-41d4-a716-446655440000",
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-01-29T20:00:00Z",
+      customerName: "Bob",
+      orderDate: "2024-01-28T20:00:00Z",
+      orderNumber: "ORD-2024-001",
+      shippingAddress: "789 Oak St",
+      status: "Shipped",
+      totalAmount: 125.00,
+      trackingNumber: "TRACK-123"
+    }
+  ])
+  orderItem_insertMany(data: [
+    {
+      id: "a50e8400-e29b-41d4-a716-446655440000",
+      orderId: "950e8400-e29b-41d4-a716-446655440000",
+      productId: "650e8400-e29b-41d4-a716-446655440000",
+      quantity: 5,
+      unitPrice: 25.00
+    }
+  ])
+}

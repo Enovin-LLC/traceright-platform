@@ -1,5 +1,8 @@
+
 import { eq, desc, like, and, or } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle as drizzleMysql } from "drizzle-orm/mysql2";
+import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
 import { 
   InsertUser, 
   users, 
@@ -26,13 +29,25 @@ import {
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
-let _db: ReturnType<typeof drizzle> | null = null;
+export let _db: ReturnType<typeof drizzleMysql> | ReturnType<typeof drizzleSqlite> | null = null;
+
+export function setDb(db: ReturnType<typeof drizzleMysql> | ReturnType<typeof drizzleSqlite>) {
+  _db = db;
+}
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (_db) return _db;
+
+  if (process.env.NODE_ENV === 'test') {
+    const sqlite = new Database(':memory:');
+    _db = drizzleSqlite(sqlite);
+    return _db;
+  }
+
+  if (process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = drizzleMysql(process.env.DATABASE_URL);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;

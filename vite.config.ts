@@ -18,6 +18,10 @@ export default defineConfig({
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
+  test: {
+    setupFiles: [path.resolve(import.meta.dirname, "tests", "helpers", "vitest.setup.ts")],
+    globals: true,
+  },
   envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),
   publicDir: path.resolve(import.meta.dirname, "client", "public"),

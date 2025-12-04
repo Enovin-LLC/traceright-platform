@@ -1,0 +1,27 @@
+mutation AddNewProduct($name: String!, $description: String, $price: Float!, $sku: String!) @auth(level: USER) {
+  product_insert(data: {name: $name, description: $description, price: $price, sku: $sku, createdAt_expr: "request.time"})
+}
+
+query GetProductById($id: UUID!) @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  product(id: $id) {
+    id
+    name
+    description
+    price
+    sku
+  }
+}
+
+query ListProducts @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  products {
+    id
+    name
+    price
+    description
+    sku
+  }
+}
+
+mutation UpdateProduct($id: UUID!, $name: String, $description: String, $price: Float, $sku: String) @auth(level: USER) {
+  product_update(id: $id, data: {name: $name, description: $description, price: $price, sku: $sku})
+}

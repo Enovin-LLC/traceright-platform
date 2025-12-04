@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 import { Streamdown } from 'streamdown';
+import { GeminiExample } from "@/components/GeminiExample";
 
 /**
  * All content in this page are only for example, replace with your own feature implementation
@@ -19,7 +20,7 @@ export default function Home() {
   // Use APP_LOGO (as image src) and APP_TITLE if needed
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col p-8">
       <main>
         {/* Example: lucide-react for icons */}
         <Loader2 className="animate-spin" />
@@ -27,6 +28,7 @@ export default function Home() {
         {/* Example: Streamdown for markdown rendering */}
         <Streamdown>Any **markdown** content</Streamdown>
         <Button variant="default">Example Button</Button>
+        <GeminiExample />
       </main>
     </div>
   );

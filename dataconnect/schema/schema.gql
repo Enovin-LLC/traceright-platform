@@ -1,0 +1,52 @@
+type User @table {
+  displayName: String!
+  email: String!
+  createdAt: Timestamp!
+  companyName: String
+  role: String
+}
+
+type Product @table {
+  name: String!
+  sku: String!
+  price: Float!
+  createdAt: Timestamp!
+  description: String
+  weight: Float
+  dimensions: String
+}
+
+type Location @table {
+  name: String!
+  address: String!
+  createdAt: Timestamp!
+  contactPerson: String
+  phoneNumber: String
+}
+
+type InventoryItem @table {
+  product: Product!
+  location: Location!
+  quantity: Int!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+}
+
+type Order @table {
+  orderNumber: String!
+  orderDate: Timestamp!
+  status: String!
+  totalAmount: Float!
+  createdAt: Timestamp!
+  user: User
+  shippingAddress: String
+  customerName: String
+  trackingNumber: String
+}
+
+type OrderItem @table {
+  order: Order!
+  product: Product!
+  quantity: Int!
+  unitPrice: Float!
+}
