@@ -1,0 +1,36 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install pnpm
+        run: npm install -g pnpm
+        
+      - name: Install dependencies
+        run: pnpm install
+        
+      - name: Build
+        run: pnpm run build
+        
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.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 }}'
+          firebaseServiceAccount: '${{ secrets.{
+  "type": "service_account",
+  "project_id": "alldoing",
+  "private_key_id": "2f136b85a3d2af7990298613995d78fc5dc1237d",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDTLL/fTPvphmZ0\nvhtlXhdmrmaK8BXzUa/VuMyh3y/mzPme9c0FqhGPv4LSvxVoje5QpfjAYm6s3vIy\nlMwgch1z75FxeZInG9Y90/pXnRkwemidhc0J6L2IIDHy7kvreUa4X8CqEMzM9+Dr\nxuDd7UukgN6LOVynYjBttYaYF8DcL8xyiwg1mKxBJtBfaINoV3B+qcDrlEs5wb4q\nzbHHmcr5aDc9HC35ClloWMJSArp0JSNKi+qRfiEv3XgMMuOUJg52ceAUqv5gGle/\n5q/N370LUf98FcIxwc+ixgoahHyUmxFmxWkIltdugAFz1fxLrT0M/h+EFnwIcBkT\ns9x4seybAgMBAAECggEAWeyW4hxys203iOQBX4eTOHbwlJ6LAluZIE362b1kNQi5\nDV9HSG+03b0kFOEo2SaDQpWCmU3xKi0f/rkNOY3Oi/WKvkMSIRRCBX8UfiWYOeQO\nU3HML7mLqAFps7SU4Ld6jX282c6gn3G4tj4wuGBZkzoLSkcJdP+jdrxTjcWjqz7r\nG8Fh9N4z67BrzaACSYDftWqkT8fIG8zTqyw0EtFL84tB+5dU8G/qGS93ymxZNt7S\nbEsP3d2a6qoQepzfGE4nSDbSxHdAHJXBQZgVa6ech6GYU7fCzDf4myq9NZ050iEP\nZD6WhxKC20P0bP0k5mXinqOCQ8PFQG6Kmg23PFXbRQKBgQD2R3e9gktfs1ty2l5s\nTV3LiTW2J7Vx+QqJSLhPFYgAfKiL4jNlsBPOPJ7U5hOpy2la9pNPfZk/s1yjvcb5\nHVCvdSYUHs6G+AB6Ukh6oSiMb4wPmiitU+XB6k43qSolonqB3p7Ni1soaz0SdxLg\nh7NNEUJ0UWfFbBfnsJvAfdqIZQKBgQDbgpGte98lI0bv4bMBcopq9869Vc4zS7la\ndzCayOE3c8CkNxb97C/ifmmcrjHlFtRYdv+8hz8wIBj6iKr76h1qlAZAJR8EWpE3\n6eSTLKkGWsxtbG0f/BUq1JEeQEpzysoHsWAMFplPZyZVny1J8DFjl6vKd36fdK+t\nUyX3oErQ/wKBgQDV49/0sLJxnT3xFAIpoU+ys6n4V6hYIeiqroOT+6kwcxOW2Y+1\n4yRwW2m+kUvGjakknT33LafpEQeGFg420OUAXYgCtXa89arEka3tAwZKYZ6M9mAZ\nmOHUdoAUC1FVejVXkVbuQPectPZHkS7N3k00w6apiwHLDkP8r
