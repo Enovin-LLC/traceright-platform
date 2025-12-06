@@ -1,6 +1,5 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAI, getGenerativeModel, VertexAIBackend } from "firebase/ai";
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -25,13 +24,6 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
-
-
-// Initialize the Vertex AI Gemini API backend service
-const ai = getAI(app, { backend: new VertexAIBackend() });
-
-// Create a `GenerativeModel` instance with a model that supports your use case
-export const model = getGenerativeModel(ai, { model: "gemini-1.5-flash" });
 
 const queryClient = new QueryClient();
 
