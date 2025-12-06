@@ -48,20 +48,43 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
+  // In production, the server code is bundled in dist/index.js
+  // and the client files are in dist/public
   const distPath =
+    process.env.DIST_PATH ||
     process.env.NODE_ENV === "development"
       ? path.resolve(import.meta.dirname, "../..", "dist", "public")
       : path.resolve(import.meta.dirname, "public");
+  
+  console.log(`📁 Serving static files from: ${distPath}`);
+  
   if (!fs.existsSync(distPath)) {
     console.error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
+      `❌ Could not find the build directory: ${distPath}, make sure to build the client first`
     );
+    console.error(`Current directory: ${import.meta.dirname}`);
+    console.error(`Checking if alternate paths exist:`);
+    const alternatePaths = [
+      path.resolve(import.meta.dirname, "../public"),
+      path.resolve(import.meta.dirname, "../../dist/public"),
+      path.resolve(process.cwd(), "dist/public"),
+      "/app/dist/public",
+    ];
+    alternatePaths.forEach(p => {
+      console.error(`  - ${p}: ${fs.existsSync(p) ? "✅ EXISTS" : "❌ NOT FOUND"}`);
+    });
   }
 
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(distPath, "index.html");
+    if (!fs.existsSync(indexPath)) {
+      console.error(`❌ index.html not found at: ${indexPath}`);
+      res.status(404).send("Application not built. Please run 'npm run build' first.");
+      return;
+    }
+    res.sendFile(indexPath);
   });
 }

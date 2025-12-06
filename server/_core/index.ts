@@ -30,6 +30,12 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  
+  console.log(`🚀 TraceRight.ai starting...`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`📁 Working directory: ${process.cwd()}`);
+  console.log(`📍 Server file location: ${import.meta.dirname}`);
+  
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -58,7 +64,8 @@ async function startServer() {
   }
 
   server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+    console.log(`\n✅ TraceRight.ai running on port ${port}`);
+    console.log(`🌐 Visit: http://localhost:${port}/`);
   });
 }
 
