@@ -1,12 +1,10 @@
 
 import { eq, desc, like, and, or } from "drizzle-orm";
 import { drizzle as drizzleMysql } from "drizzle-orm/mysql2";
-import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import { 
-  InsertUser, 
-  users, 
-  materials, 
+import {
+  InsertUser,
+  users,
+  materials,
   InsertMaterial,
   suppliers,
   InsertSupplier,
@@ -29,19 +27,25 @@ import {
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
-export let _db: ReturnType<typeof drizzleMysql> | ReturnType<typeof drizzleSqlite> | null = null;
+// Type for database instance - only MySQL in production
+type DbInstance = ReturnType<typeof drizzleMysql>;
 
-export function setDb(db: ReturnType<typeof drizzleMysql> | ReturnType<typeof drizzleSqlite>) {
+export let _db: DbInstance | null = null;
+
+export function setDb(db: DbInstance) {
   _db = db;
 }
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
-export async function getDb() {
+export async function getDb(): Promise<DbInstance | null> {
   if (_db) return _db;
 
+  // For testing, dynamically import better-sqlite3 to avoid bundling native module in production
   if (process.env.NODE_ENV === 'test') {
+    const { drizzle: drizzleSqlite } = await import('drizzle-orm/better-sqlite3');
+    const Database = (await import('better-sqlite3')).default;
     const sqlite = new Database(':memory:');
-    _db = drizzleSqlite(sqlite);
+    _db = drizzleSqlite(sqlite) as unknown as DbInstance;
     return _db;
   }
 
