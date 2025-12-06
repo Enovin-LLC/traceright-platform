@@ -37,11 +37,19 @@ async function startServer() {
   console.log(`📁 Working directory: ${process.cwd()}`);
   console.log(`📍 Server file location: ${import.meta.dirname}`);
 
-  // Validate critical environment variables
-  const requiredEnvVars = ["DATABASE_URL"];
-  const missingVars = requiredEnvVars.filter(v => !process.env[v]);
-  if (missingVars.length > 0) {
-    console.warn(`⚠️  Missing environment variables: ${missingVars.join(", ")}`);
+  // Check for local dev mode
+  const isLocalDevMode = process.env.LOCAL_DEV_MODE === "true" || (!process.env.DATABASE_URL && process.env.NODE_ENV !== "production");
+  if (isLocalDevMode) {
+    console.log(`🔧 LOCAL DEV MODE: Enabled - using in-memory storage and mock authentication`);
+  }
+
+  // Validate critical environment variables (only warn in production)
+  if (!isLocalDevMode) {
+    const requiredEnvVars = ["DATABASE_URL"];
+    const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+    if (missingVars.length > 0) {
+      console.warn(`⚠️  Missing environment variables: ${missingVars.join(", ")}`);
+    }
   }
 
   // Test database connection early
@@ -49,6 +57,8 @@ async function startServer() {
     const db = await getDb();
     if (db) {
       console.log(`✅ Database connection established`);
+    } else if (isLocalDevMode) {
+      console.log(`✅ Using in-memory storage for local development`);
     } else {
       console.warn(`⚠️  Database not available - running in limited mode`);
     }

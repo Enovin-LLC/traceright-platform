@@ -30,11 +30,15 @@ const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserI
 
 class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
+    if (ENV.localDevMode) {
+      console.log("[OAuth] Running in LOCAL DEV MODE - mock authentication enabled");
+    } else {
+      console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
+      if (!ENV.oAuthServerUrl) {
+        console.error(
+          "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
+        );
+      }
     }
   }
 
@@ -257,6 +261,45 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<User> {
+    // Local development mode - create/return a mock user automatically
+    if (ENV.localDevMode) {
+      const mockOpenId = ENV.ownerOpenId || "local-dev-user";
+      const signedInAt = new Date();
+      
+      // Try to get existing user
+      let user = await db.getUserByOpenId(mockOpenId);
+      
+      // Create mock user if doesn't exist
+      if (!user) {
+        await db.upsertUser({
+          openId: mockOpenId,
+          name: "Local Dev User",
+          email: "dev@localhost",
+          loginMethod: "local",
+          role: "admin",
+          lastSignedIn: signedInAt,
+        });
+        user = await db.getUserByOpenId(mockOpenId);
+      }
+      
+      if (user) {
+        return user;
+      }
+      
+      // Fallback mock user object for when in-memory storage is used
+      return {
+        id: 1,
+        openId: mockOpenId,
+        name: "Local Dev User",
+        email: "dev@localhost",
+        loginMethod: "local",
+        role: "admin",
+        createdAt: signedInAt,
+        updatedAt: signedInAt,
+        lastSignedIn: signedInAt,
+      } as User;
+    }
+
     // Regular authentication flow
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);
