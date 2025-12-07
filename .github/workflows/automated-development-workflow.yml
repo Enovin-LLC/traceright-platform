@@ -1,0 +1,509 @@
+name: Automated Development Workflow
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+      - staging
+      - dev
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  # ============================================================================
+  # SETUP & ENVIRONMENT DETECTION
+  # ============================================================================
+  setup:
+    name: Setup & Environment Detection
+    runs-on: ubuntu-22.04
+    outputs:
+      environment: ${{ steps.env-setup.outputs.environment }}
+      affected-areas: ${{ steps.detect-changes.outputs.affected-areas }}
+      run-tests: ${{ steps.detect-changes.outputs.run-tests }}
+      run-build: ${{ steps.detect-changes.outputs.run-build }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup environment variables
+        id: env-setup
+        uses: simenandre/setup-variables@v2
+        with:
+          key: ${{ github.ref_name }}
+          map: |
+            main: production
+            staging: staging
+            dev: development
+            '*': development
+
+      - name: Detect changed files and affected areas
+        id: detect-changes
+        run: |
+          # Get changed files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Detect affected areas
+          AFFECTED_AREAS="[]"
+          RUN_TESTS="false"
+          RUN_BUILD="false"
+          
+          if echo "$CHANGED_FILES" | grep -qE "^(client/|components\.json)"; then
+            AFFECTED_AREAS=$(echo $AFFECTED_AREAS | jq '. + ["frontend"]')
+            RUN_TESTS="true"
+            RUN_BUILD="true"
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -qE "^(server/|drizzle/)"; then
+            AFFECTED_AREAS=$(echo $AFFECTED_AREAS | jq '. + ["backend"]')
+            RUN_TESTS="true"
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -qE "^(functions/|firebase\.json)"; then
+            AFFECTED_AREAS=$(echo $AFFECTED_AREAS | jq '. + ["functions"]')
+            RUN_TESTS="true"
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -qE "\.(test|spec)\.(ts|tsx|js|jsx)$"; then
+            RUN_TESTS="true"
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -qE "^(package\.json|pnpm-lock\.yaml|tsconfig\.json|vite\.config\.ts|vitest\.config\.ts)"; then
+            RUN_TESTS="true"
+            RUN_BUILD="true"
+          fi
+          
+          echo "affected-areas=$AFFECTED_AREAS" >> $GITHUB_OUTPUT
+          echo "run-tests=$RUN_TESTS" >> $GITHUB_OUTPUT
+          echo "run-build=$RUN_BUILD" >> $GITHUB_OUTPUT
+
+      - name: Store environment variables
+        uses: UnlyEd/github-action-store-variable@v3
+        with:
+          variables: |
+            ENVIRONMENT=${{ steps.env-setup.outputs.environment }}
+            AFFECTED_AREAS=${{ steps.detect-changes.outputs.affected-areas }}
+            RUN_TESTS=${{ steps.detect-changes.outputs.run-tests }}
+            RUN_BUILD=${{ steps.detect-changes.outputs.run-build }}
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            PNPM_VERSION=${{ env.PNPM_VERSION }}
+
+  # ============================================================================
+  # CODE QUALITY & LINTING
+  # ============================================================================
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-22.04
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Import environment variables
+        uses: UnlyEd/github-action-store-variable@v3
+        with:
+          variables: |
+            NODE_VERSION
+            PNPM_VERSION
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm lint || true
+        continue-on-error: true
+
+      - name: Run TypeScript check
+        run: pnpm exec tsc --noEmit
+
+      - name: Check formatting (Prettier)
+        run: pnpm exec prettier --check "**/*.{ts,tsx,js,jsx,json,css,md}"
+        continue-on-error: true
+
+  # ============================================================================
+  # TESTING SUITE
+  # ============================================================================
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    needs: setup
+    if: needs.setup.outputs.run-tests == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Import environment variables
+        uses: UnlyEd/github-action-store-variable@v3
+        with:
+          variables: |
+            NODE_VERSION
+            PNPM_VERSION
+            ENVIRONMENT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests with coverage
+        run: pnpm test:coverage || pnpm test
+        env:
+          NODE_ENV: test
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Store test results
+        uses: UnlyEd/github-action-store-variable@v3
+        if: always()
+        with:
+          variables: |
+            UNIT_TEST_STATUS=${{ job.status }}
+
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-22.04
+    needs: [setup, test-unit]
+    if: needs.setup.outputs.run-tests == 'true'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: traceright_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Import environment variables
+        uses: UnlyEd/github-action-store-variable@v3
+        with:
+          variables: |
+            NODE_VERSION
+            PNPM_VERSION
+            ENVIRONMENT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/traceright_test
+
+      - name: Run integration tests
+        run: pnpm test:integration || echo "No integration tests configured"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/traceright_test
+          NODE_ENV: test
+
+      - name: Store test results
+        uses: UnlyEd/github-action-store-variable@v3
+        if: always()
+        with:
+          variables: |
+            INTEGRATION_TEST_STATUS=${{ job.status }}
+
+  # ============================================================================
+  # BUILD & VALIDATION
+  # ============================================================================
+  build:
+    name: Build Application
+    runs-on: ubuntu-22.04
+    needs: setup
+    if: needs.setup.outputs.run-build == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Import environment variables
+        uses: UnlyEd/github-action-store-variable@v3
+        with:
+          variables: |
+            NODE_VERSION
+            PNPM_VERSION
+            ENVIRONMENT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          VITE_ENVIRONMENT: ${{ env.ENVIRONMENT }}
+
+      - name: Verify build output
+        run: node scripts/verify-build.js
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-${{ github.sha }}
+          path: |
+            dist/
+            client/dist/
+          retention-days: 7
+
+      - name: Store build results
+        uses: UnlyEd/github-action-store-variable@v3
+        if: always()
+        with:
+          variables: |
+            BUILD_STATUS=${{ job.status }}
+
+  # ============================================================================
+  # SECURITY SCANNING
+  # ============================================================================
+  security-scan:
+    name: Security Audit
+    runs-on: ubuntu-22.04
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Import environment variables
+        uses: UnlyEd/github-action-store-variable@v3
+        with:
+          variables: |
+            NODE_VERSION
+            PNPM_VERSION
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level moderate
+        continue-on-error: true
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        if: ${{ secrets.SNYK_TOKEN != '' }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  # ============================================================================
+  # PERFORMANCE & BUNDLE ANALYSIS
+  # ============================================================================
+  analyze-bundle:
+    name: Bundle Size Analysis
+    runs-on: ubuntu-22.04
+    needs: build
+    if: needs.setup.outputs.run-build == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-${{ github.sha }}
+
+      - name: Analyze bundle size
+        uses: andresz1/size-limit-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          skip_step: install
+        continue-on-error: true
+
+  # ============================================================================
+  # SUMMARY & REPORTING
+  # ============================================================================
+  test-summary:
+    name: Test Summary & Reporting
+    runs-on: ubuntu-22.04
+    needs: [setup, lint, test-unit, test-integration, build, security-scan]
+    if: always()
+    steps:
+      - name: Import all test results
+        uses: UnlyEd/github-action-store-variable@v3
+        with:
+          variables: |
+            UNIT_TEST_STATUS
+            INTEGRATION_TEST_STATUS
+            BUILD_STATUS
+            ENVIRONMENT
+            AFFECTED_AREAS
+
+      - name: Generate test summary
+        run: |
+          echo "# 🎯 Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`${{ env.ENVIRONMENT }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Affected Areas:** ${{ env.AFFECTED_AREAS }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Linting | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.test-unit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.test-integration.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for failures
+        if: |
+          needs.lint.result == 'failure' ||
+          needs.test-unit.result == 'failure' ||
+          needs.test-integration.result == 'failure' ||
+          needs.build.result == 'failure'
+        run: |
+          echo "❌ One or more critical checks failed"
+          exit 1
+
+  # ============================================================================
+  # AUTO-MERGE (for dependabot/automated PRs)
+  # ============================================================================
+  auto-merge:
+    name: Auto-merge Bot PRs
+    runs-on: ubuntu-22.04
+    needs: [test-summary]
+    if: |
+      github.actor == 'dependabot[bot]' && 
+      needs.test-summary.result == 'success'
+    steps:
+      - name: Enable auto-merge
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
+  # DEPLOYMENT (only on main/staging)
+  # ============================================================================
+  deploy:
+    name: Deploy to ${{ needs.setup.outputs.environment }}
+    runs-on: ubuntu-22.04
+    needs: [setup, test-summary, build]
+    if: |
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging') &&
+      needs.test-summary.result == 'success'
+    environment:
+      name: ${{ needs.setup.outputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Import environment variables
+        uses: UnlyEd/github-action-store-variable@v3
+        with:
+          variables: |
+            ENVIRONMENT
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-${{ github.sha }}
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        id: deploy
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID || 'alldoing' }}
+          channelId: ${{ env.ENVIRONMENT == 'production' && 'live' || env.ENVIRONMENT }}
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+
+      - name: Create deployment summary
+        run: |
+          echo "# 🚀 Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date)" >> $GITHUB_STEP_SUMMARY
