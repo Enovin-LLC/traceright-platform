@@ -9,7 +9,7 @@ import * as db from "./db";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(opts => opts.ctx.user[0] || null),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -361,7 +361,7 @@ export const appRouter = router({
       return await db.getFeatureFlagByKey(input.key);
     }),
     isEnabled: protectedProcedure.input(z.object({ key: z.string() })).query(async ({ input, ctx }) => {
-      return await db.isFeatureEnabled(input.key, ctx.user.role);
+      return await db.isFeatureEnabled(input.key, ctx.user[0]?.role);
     }),
     create: protectedProcedure.input(z.object({
       key: z.string(),
@@ -371,7 +371,7 @@ export const appRouter = router({
       category: z.string().optional(),
       requiredRole: z.enum(["user", "admin"]).default("user"),
     })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user[0]?.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can create feature flags" });
       }
       await db.createFeatureFlag(input);
@@ -387,21 +387,21 @@ export const appRouter = router({
         requiredRole: z.enum(["user", "admin"]).optional(),
       }),
     })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user[0]?.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can update feature flags" });
       }
       await db.updateFeatureFlag(input.id, input.data);
       return { success: true };
     }),
     toggle: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user[0]?.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can toggle feature flags" });
       }
       await db.toggleFeatureFlag(input.id);
       return { success: true };
     }),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user[0]?.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can delete feature flags" });
       }
       await db.deleteFeatureFlag(input.id);

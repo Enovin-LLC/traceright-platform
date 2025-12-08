@@ -5,20 +5,22 @@ import { sdk } from "./sdk";
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
-  user: User | null;
+  user: User[];
 };
 
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
-  let user: User | null = null;
+  let authenticatedUser: User | null = null;
 
   try {
-    user = await sdk.authenticateRequest(opts.req);
+    authenticatedUser = await sdk.authenticateRequest(opts.req);
   } catch (error) {
     // Authentication is optional for public procedures.
-    user = null;
+    authenticatedUser = null;
   }
+
+  const user = authenticatedUser ? [authenticatedUser] : [];
 
   return {
     req: opts.req,
