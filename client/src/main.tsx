@@ -1,5 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
+<<<<<<< HEAD
+=======
+import { getAI, getGenerativeModel, VertexAIBackend } from "firebase/app";
+>>>>>>> fd39d29 (Commi)
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
